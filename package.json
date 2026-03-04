@@ -1,0 +1,31 @@
+{
+  "name": "banklend-contracts",
+  "version": "1.0.0",
+  "description": "BankLend — Simplified Lending Pool with Bank Mode on BSC",
+  "scripts": {
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "test:gas": "REPORT_GAS=true npx hardhat test",
+    "deploy:testnet": "npx hardhat run scripts/deploy.ts --network bscTestnet",
+    "deploy:mainnet": "npx hardhat run scripts/deploy.ts --network bsc",
+    "node": "npx hardhat node",
+    "clean": "npx hardhat clean",
+    "typechain": "npx hardhat typechain"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^10.0.0",
+    "chai": "^4.3.0",
+    "dotenv": "^16.0.0",
+    "hardhat": "^2.22.0",
+    "hardhat-gas-reporter": "^1.0.9",
+    "solidity-coverage": "^0.8.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0"
+  }
+}

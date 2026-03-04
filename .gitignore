@@ -1,0 +1,28 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Hardhat
+artifacts/
+cache/
+typechain-types/
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Build
+frontend/dist/
+frontend/.vite/
+
+# Hardhat coverage
+coverage/
+coverage.json
+
+# Reports
+gasReporter.txt
+
+# Misc
+*.tsbuildinfo
+.DS_Store
