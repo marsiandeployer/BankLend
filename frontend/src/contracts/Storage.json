@@ -27,5 +27,23 @@
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "string", "name": "key", "type": "string" },
+      {
+        "components": [
+          { "internalType": "address", "name": "owner", "type": "address" },
+          { "internalType": "string", "name": "info", "type": "string" }
+        ],
+        "internalType": "struct IStorage.KeyData",
+        "name": "data",
+        "type": "tuple"
+      }
+    ],
+    "name": "setKeyData",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
 ]

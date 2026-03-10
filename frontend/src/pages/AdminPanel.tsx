@@ -3,8 +3,9 @@ import { usePoolState } from '../hooks/usePoolState'
 import { useStorage } from '../hooks/useStorage'
 import { BankRunGauge } from '../components/BankRunGauge'
 import { ConnectWallet } from '../components/ConnectWallet'
-import { useAccount } from 'wagmi'
+import { useAccount, useChainId } from 'wagmi'
 import { formatUSDT, formatAPY } from '../constants/config'
+import { TOKENS, DOMAINS } from '../constants/addresses'
 import { useState } from 'react'
 
 function FormField({ label, value, onChange, placeholder, type = 'text' }: {
@@ -30,13 +31,18 @@ function FormField({ label, value, onChange, placeholder, type = 'text' }: {
 
 export function AdminPanel() {
   const { isConnected, address } = useAccount()
+  const chainId = useChainId()
   const { isAdmin, adminWithdraw, adminDeposit, setRates, updateStorageConfig, step } = useAdmin()
   const { totalDeposited, totalBorrowed, adminWithdrawn, availableLiquidity, utilizationRate, depositAPY, borrowAPY, poolAddress } = usePoolState()
   const { config, owner } = useStorage()
 
+  const chainTokens = TOKENS[chainId as keyof typeof TOKENS]
+  const usdtAddress = (config?.depositToken || chainTokens?.USDT || '') as `0x${string}`
+  const domain = DOMAINS[chainId] ?? DOMAINS[56]
+
   // Form state — contract settings
-  const [poolAddr, setPoolAddr] = useState(config?.poolAddress || '')
-  const [depositToken, setDepositToken] = useState(config?.depositToken || '')
+  const [poolAddr, setPoolAddr] = useState(config?.poolAddress || poolAddress || '')
+  const [depositToken, setDepositToken] = useState(config?.depositToken || usdtAddress || '')
   const [depAPY, setDepAPY] = useState(String(depositAPY / 100))
   const [borAPY, setBorAPY] = useState(String(borrowAPY / 100))
 
@@ -64,12 +70,12 @@ export function AdminPanel() {
   }
 
   const handleAdminDeposit = async () => {
-    if (!depositBackAmount || !config?.depositToken) return
+    if (!depositBackAmount || !usdtAddress) return
     setError('')
     try {
       await adminDeposit(
         BigInt(Math.floor(parseFloat(depositBackAmount) * 1e6)),
-        config.depositToken as `0x${string}`,
+        usdtAddress,
       )
       setDepositBackAmount('')
       showSuccess(`Returned $${depositBackAmount} USDT to pool`)
@@ -126,7 +132,7 @@ export function AdminPanel() {
           Your address: <span className="font-mono text-slate-300">{address}</span>
         </p>
         <p className="text-sm text-slate-500">
-          Set up admin in the onout.org Storage contract for domain: {window.location.hostname}
+          Set up admin in the onout.org Storage contract for domain: {domain}
         </p>
       </div>
     )
@@ -313,7 +319,7 @@ export function AdminPanel() {
           <div className="mt-4 pt-4 border-t border-slate-700">
             <div className="text-xs text-slate-500 mb-1">Pool Contract</div>
             <a
-              href={`https://bscscan.com/address/${poolAddress}`}
+              href={`https://${chainId === 97 ? 'testnet.' : ''}bscscan.com/address/${poolAddress}`}
               target="_blank"
               rel="noopener noreferrer"
               className="font-mono text-sm text-indigo-400 hover:text-indigo-300"

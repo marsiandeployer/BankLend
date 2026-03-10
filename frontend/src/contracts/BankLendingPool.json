@@ -20,6 +20,11 @@
         "internalType": "uint256",
         "name": "_borrowAPY",
         "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_storage",
+        "type": "address"
       }
     ],
     "stateMutability": "nonpayable",

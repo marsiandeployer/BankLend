@@ -1,8 +1,9 @@
-import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from 'wagmi'
+import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount, useChainId } from 'wagmi'
 import { useState } from 'react'
 import { usePoolState } from './usePoolState'
 import { useStorage } from './useStorage'
 import BankLendingPoolABI from '../contracts/BankLendingPool.json'
+import { TOKENS } from '../constants/addresses'
 
 const ERC20_APPROVE_ABI = [
   {
@@ -29,11 +30,13 @@ const ERC20_APPROVE_ABI = [
 
 export function useDeposit() {
   const { address } = useAccount()
+  const chainId = useChainId()
   const { poolAddress } = usePoolState()
   const { config } = useStorage()
   const [step, setStep] = useState<'idle' | 'approving' | 'depositing' | 'done'>('idle')
 
-  const depositTokenAddress = config?.depositToken as `0x${string}` | undefined
+  const chainTokens = TOKENS[chainId as keyof typeof TOKENS]
+  const depositTokenAddress = (config?.depositToken || chainTokens?.USDT) as `0x${string}` | undefined
 
   const { data: allowance } = useReadContract({
     address: depositTokenAddress,

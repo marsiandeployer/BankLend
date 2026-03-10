@@ -1,5 +1,6 @@
 import { useReadContract, useWriteContract, useAccount, useChainId } from 'wagmi'
-import { STORAGE_ADDRESS, DOMAIN } from '../constants/addresses'
+import { bscTestnet } from 'wagmi/chains'
+import { STORAGE_ADDRESSES, DOMAINS } from '../constants/addresses'
 import StorageABI from '../contracts/Storage.json'
 
 export interface StorageData {
@@ -18,18 +19,27 @@ export interface PoolConfig {
 }
 
 export function useStorage() {
+  const chainId = useChainId()
+  const { address } = useAccount()
+
+  const storageAddress = (STORAGE_ADDRESSES[chainId] ?? STORAGE_ADDRESSES[56]) as `0x${string}`
+  const domain = DOMAINS[chainId] ?? DOMAINS[56]
+  const isTestnet = chainId === bscTestnet.id
+
   const { data: storageData, isLoading, refetch } = useReadContract({
-    address: STORAGE_ADDRESS,
+    address: storageAddress,
     abi: StorageABI,
     functionName: 'getData',
-    args: [DOMAIN],
+    args: [domain],
   })
 
   const { writeContractAsync, isPending } = useWriteContract()
 
   const appData = storageData as StorageData | undefined
 
-  // Parse JSON from bytes data
+  // Parse JSON from the data field.
+  // Mainnet Storage returns bytes; testnet returns string — both encode identically in ABI,
+  // so decoding as bytes and converting via TextDecoder works for both.
   const parseConfig = (): PoolConfig | null => {
     if (!appData?.data || appData.data === '0x') return null
     try {
@@ -44,15 +54,26 @@ export function useStorage() {
 
   const setConfig = async (config: PoolConfig) => {
     const json = JSON.stringify(config)
-    const bytes = new TextEncoder().encode(json)
-    const hex = '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('') as `0x${string}`
 
-    await writeContractAsync({
-      address: STORAGE_ADDRESS,
-      abi: StorageABI,
-      functionName: 'setData',
-      args: [DOMAIN, hex],
-    })
+    if (isTestnet) {
+      // Testnet Storage uses setKeyData(string key, tuple(address owner, string info))
+      await writeContractAsync({
+        address: storageAddress,
+        abi: StorageABI,
+        functionName: 'setKeyData',
+        args: [domain, { owner: address!, info: json }],
+      })
+    } else {
+      // Mainnet Storage uses setData(string domain, bytes data)
+      const bytes = new TextEncoder().encode(json)
+      const hex = ('0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')) as `0x${string}`
+      await writeContractAsync({
+        address: storageAddress,
+        abi: StorageABI,
+        functionName: 'setData',
+        args: [domain, hex],
+      })
+    }
     await refetch()
   }
 
