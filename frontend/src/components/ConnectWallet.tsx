@@ -26,6 +26,10 @@ export function ConnectWallet() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
 
+  // walletConnect connector is kept in wagmiConfig for wallet-bridge iframe injection,
+  // but should not appear in manual connect UI (requires AppKit setup + real projectId)
+  const visibleConnectors = connectors.filter(c => c.type !== 'walletConnect')
+
   const currentChain = CHAINS.find(c => c.id === chainId) ?? CHAINS[0]
   const shortAddr = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : ''
 
@@ -65,7 +69,7 @@ export function ConnectWallet() {
               onClick={e => e.stopPropagation()}
             >
               <h3 className="text-white font-semibold text-lg mb-4">Connect Wallet</h3>
-              {connectors.map(connector => (
+              {visibleConnectors.map(connector => (
                 <button
                   key={connector.uid}
                   onClick={() => { connect({ connector }); setShowModal(false) }}
