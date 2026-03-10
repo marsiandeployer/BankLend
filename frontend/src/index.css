@@ -11,3 +11,25 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Light theme: invert slate scale so dark components become light */
+html.light {
+  --color-slate-950: oklch(98% 0.003 247.858);
+  --color-slate-900: oklch(96.8% 0.007 247.896);
+  --color-slate-800: oklch(92.9% 0.013 255.508);
+  --color-slate-700: oklch(80.9% 0.015 263.713);
+  --color-slate-600: oklch(70.7% 0.022 261.325);
+  --color-slate-500: oklch(55.4% 0.046 257.417);
+  --color-slate-400: oklch(44.6% 0.043 257.281);
+  --color-slate-300: oklch(37.2% 0.044 257.287);
+  --color-slate-200: oklch(27.9% 0.041 260.031);
+  --color-slate-100: oklch(21% 0.034 264.665);
+  --color-slate-50: oklch(13% 0.028 261.692);
+  --color-white: oklch(13% 0.028 261.692);
+  --color-black: oklch(98% 0.003 247.858);
+}
+
+html.light body {
+  background-color: #f1f3f8;
+  color: #1a1e2e;
+}

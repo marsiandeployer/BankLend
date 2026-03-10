@@ -4,7 +4,7 @@ import { injected, walletConnect } from 'wagmi/connectors'
 import { APP_CONFIG } from './constants/config'
 
 export const wagmiConfig = createConfig({
-  chains: [bsc, bscTestnet],
+  chains: [bscTestnet, bsc],
   connectors: [
     injected(),
     walletConnect({ projectId: APP_CONFIG.walletConnectProjectId }),
