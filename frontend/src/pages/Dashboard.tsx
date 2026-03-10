@@ -3,29 +3,13 @@ import { useUserPosition } from '../hooks/useUserPosition'
 import { usePoolState } from '../hooks/usePoolState'
 import { useDeposit } from '../hooks/useDeposit'
 import { useBorrow } from '../hooks/useBorrow'
-import { useStorage } from '../hooks/useStorage'
+import { useCollaterals } from '../hooks/useCollaterals'
 import { formatUSDT, formatToken, formatAPY } from '../constants/config'
 import { useState } from 'react'
 import { ConnectWallet } from '../components/ConnectWallet'
+import { LTVBar } from '../components/LTVBar'
 
-const PRECISION = BigInt(1e18)
-
-function HealthBar({ healthFactor }: { healthFactor: bigint }) {
-  const hf = Number(healthFactor) / 1e18
-  const color = hf >= 2 ? 'bg-emerald-500' : hf >= 1.5 ? 'bg-amber-500' : hf >= 1 ? 'bg-orange-500' : 'bg-red-500'
-  const textColor = hf >= 2 ? 'text-emerald-400' : hf >= 1.5 ? 'text-amber-400' : hf >= 1 ? 'text-orange-400' : 'text-red-400'
-  const label = hf >= 2 ? 'Healthy' : hf >= 1.5 ? 'OK' : hf >= 1 ? 'Caution' : 'Liquidatable'
-  const display = hf > 10 ? '∞' : hf.toFixed(2)
-
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
-        <div className={`h-full ${color}`} style={{ width: `${Math.min(hf * 25, 100)}%` }} />
-      </div>
-      <span className={`text-sm font-medium ${textColor}`}>{display} · {label}</span>
-    </div>
-  )
-}
+const LIQUIDATION_THRESHOLD = 80
 
 export function Dashboard() {
   const { address, isConnected } = useAccount()
@@ -33,7 +17,7 @@ export function Dashboard() {
   const { depositAPY, borrowAPY, totalShares, totalDeposited } = usePoolState()
   const { deposit, withdraw, step: depositStep } = useDeposit()
   const { repay, step: borrowStep } = useBorrow()
-  const { config } = useStorage()
+  const { collaterals } = useCollaterals()
 
   const [depositAmount, setDepositAmount] = useState('')
   const [withdrawAmount, setWithdrawAmount] = useState('')
@@ -54,6 +38,23 @@ export function Dashboard() {
   const hasDeposit = shares > 0n
   const hasBorrow = borrow !== null && borrow.principal > 0n
 
+  // Find collateral info for active borrow
+  const borrowCollateral = hasBorrow
+    ? collaterals.find(c => c.address.toLowerCase() === borrow!.collateralToken.toLowerCase())
+    : null
+
+  const collateralValueUSD = borrowCollateral && hasBorrow
+    ? (Number(borrow!.collateralAmount) / Math.pow(10, borrowCollateral.decimals)) * borrowCollateral.priceUSD
+    : 0
+
+  const totalOwed = hasBorrow
+    ? Number(borrow!.principal + borrow!.interestOwed + pendingInterest) / 1e6
+    : 0
+
+  const currentLTV = collateralValueUSD > 0
+    ? Math.min((totalOwed / collateralValueUSD) * 100, 100)
+    : 0
+
   const handleDeposit = async () => {
     if (!depositAmount) return
     setError('')
@@ -71,7 +72,6 @@ export function Dashboard() {
     if (!withdrawAmount) return
     setError('')
     try {
-      // Convert USDT amount to shares
       const usdtBig = BigInt(Math.floor(parseFloat(withdrawAmount) * 1e6))
       const sharesForAmount = totalDeposited > 0n
         ? (usdtBig * totalShares) / totalDeposited
@@ -122,9 +122,9 @@ export function Dashboard() {
             </div>
           </div>
           <div>
-            <div className="text-sm text-slate-400">Shares Held</div>
-            <div className="text-lg font-medium text-slate-300 mt-1">
-              {isLoading ? '...' : formatToken(shares, 6, 2)}
+            <div className="text-sm text-slate-400">Earning APY</div>
+            <div className="text-lg font-medium text-indigo-300 mt-1">
+              {formatAPY(depositAPY)}
             </div>
           </div>
         </div>
@@ -146,7 +146,6 @@ export function Dashboard() {
           )}
         </div>
 
-        {/* Deposit modal inline */}
         {activeModal === 'deposit' && (
           <div className="mt-4 p-4 bg-slate-900 rounded-lg border border-slate-700">
             <h3 className="text-white font-medium mb-3">Deposit USDT</h3>
@@ -230,14 +229,21 @@ export function Dashboard() {
               <div>
                 <div className="text-sm text-slate-400">Collateral Locked</div>
                 <div className="text-lg font-medium text-slate-300 mt-1">
-                  {formatToken(borrow!.collateralAmount, 18, 4)} BNB
+                  {formatToken(borrow!.collateralAmount, borrowCollateral?.decimals ?? 18, 4)}{' '}
+                  {borrowCollateral?.symbol ?? '...'}
                 </div>
+                {collateralValueUSD > 0 && (
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    ≈ ${collateralValueUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                )}
               </div>
               <div>
-                <div className="text-sm text-slate-400">Health Factor</div>
-                <div className="mt-1">
-                  <HealthBar healthFactor={healthFactor} />
-                </div>
+                <div className="text-sm text-slate-400 mb-2">Health</div>
+                <LTVBar
+                  currentLTV={currentLTV}
+                  liquidationThreshold={LIQUIDATION_THRESHOLD}
+                />
               </div>
             </div>
 
@@ -278,13 +284,32 @@ export function Dashboard() {
             )}
           </>
         ) : (
-          <div className="text-center py-8">
+          <div>
             <p className="text-slate-400 mb-4">No active borrow position</p>
+
+            {/* Mini collateral table */}
+            {collaterals.filter(c => c.enabled).length > 0 && (
+              <div className="space-y-2 mb-4">
+                <div className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Available Collateral</div>
+                {collaterals.filter(c => c.enabled).map(col => (
+                  <div key={col.address} className="flex items-center justify-between bg-slate-900/50 rounded-lg px-3 py-2">
+                    <span className="text-white text-sm font-medium">{col.symbol}</span>
+                    <div className="flex items-center gap-4 text-sm text-slate-400">
+                      {col.priceUSD > 0 && (
+                        <span>${col.priceUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      )}
+                      <span>Max LTV: <span className="text-emerald-400">{col.ltv}%</span></span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <a
               href="/markets"
-              className="text-indigo-400 hover:text-indigo-300 text-sm"
+              className="inline-block text-indigo-400 hover:text-indigo-300 text-sm"
             >
-              View Markets to start borrowing →
+              Go to Markets to start borrowing →
             </a>
           </div>
         )}

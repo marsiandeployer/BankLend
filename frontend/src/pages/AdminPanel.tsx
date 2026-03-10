@@ -1,6 +1,7 @@
 import { useAdmin } from '../hooks/useAdmin'
 import { usePoolState } from '../hooks/usePoolState'
 import { useStorage } from '../hooks/useStorage'
+import { useCollaterals } from '../hooks/useCollaterals'
 import { BankRunGauge } from '../components/BankRunGauge'
 import { ConnectWallet } from '../components/ConnectWallet'
 import { useAccount, useChainId } from 'wagmi'
@@ -32,9 +33,10 @@ function FormField({ label, value, onChange, placeholder, type = 'text' }: {
 export function AdminPanel() {
   const { isConnected, address } = useAccount()
   const chainId = useChainId()
-  const { isAdmin, adminWithdraw, adminDeposit, setRates, updateStorageConfig, step } = useAdmin()
+  const { isAdmin, adminWithdraw, adminDeposit, setRates, setCollateral, updateStorageConfig, step } = useAdmin()
   const { totalDeposited, totalBorrowed, adminWithdrawn, availableLiquidity, utilizationRate, depositAPY, borrowAPY, poolAddress } = usePoolState()
   const { config, owner } = useStorage()
+  const { collaterals, isLoading: colLoading } = useCollaterals()
 
   const chainTokens = TOKENS[chainId as keyof typeof TOKENS]
   const usdtAddress = (config?.depositToken || chainTokens?.USDT || '') as `0x${string}`
@@ -52,9 +54,32 @@ export function AdminPanel() {
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
 
+  // Add collateral form
+  const [colToken, setColToken] = useState('')
+  const [colPriceFeed, setColPriceFeed] = useState('')
+  const [colLtv, setColLtv] = useState('')
+
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg)
     setTimeout(() => setSuccessMsg(''), 4000)
+  }
+
+  const handleSetCollateral = async () => {
+    if (!colToken || !colPriceFeed || !colLtv) return
+    setError('')
+    try {
+      await setCollateral(
+        colToken as `0x${string}`,
+        colPriceFeed as `0x${string}`,
+        Math.round(parseFloat(colLtv)),
+      )
+      setColToken('')
+      setColPriceFeed('')
+      setColLtv('')
+      showSuccess(`Collateral ${colToken.slice(0, 8)}… configured (LTV ${colLtv}%)`)
+    } catch (e: any) {
+      setError(e.message || 'Transaction failed')
+    }
   }
 
   const handleAdminWithdraw = async () => {
@@ -275,26 +300,74 @@ export function AdminPanel() {
         </div>
       </div>
 
-      {/* ── Supported Collateral ── */}
+      {/* ── Add / Update Collateral ── */}
       <div className="rounded-xl border border-slate-700/50 bg-slate-800/30 p-6">
-        <h2 className="text-white font-semibold text-lg mb-4">Supported Collateral</h2>
-        {config?.collateral ? (
-          <div className="space-y-2">
-            {Object.entries(config.collateral).map(([addr, info]) => (
-              <div key={addr} className="flex items-center justify-between bg-slate-900/50 rounded-lg px-4 py-3">
-                <div>
-                  <span className="text-white font-medium">{info.symbol}</span>
-                  <span className="text-slate-500 font-mono text-xs ml-3">{addr}</span>
+        <h2 className="text-white font-semibold text-lg mb-1">Add / Update Collateral</h2>
+        <p className="text-sm text-slate-400 mb-5">
+          Configure which tokens can be used as collateral. Calls <code className="text-indigo-300">setCollateral()</code> on-chain.
+        </p>
+
+        <div className="space-y-4 mb-5">
+          <FormField
+            label="Token Address"
+            value={colToken}
+            onChange={setColToken}
+            placeholder="0x... (ERC20 collateral token)"
+          />
+          <FormField
+            label="Price Feed (Chainlink)"
+            value={colPriceFeed}
+            onChange={setColPriceFeed}
+            placeholder="0x... (AggregatorV3Interface)"
+          />
+          <FormField
+            label="Max LTV (%)"
+            value={colLtv}
+            onChange={setColLtv}
+            placeholder="75"
+            type="number"
+          />
+          <button
+            onClick={handleSetCollateral}
+            disabled={step === 'pending' || !colToken || !colPriceFeed || !colLtv || !poolAddress}
+            className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
+            title={!poolAddress ? 'Pool address must be configured first' : ''}
+          >
+            {step === 'pending' ? 'Processing...' : 'Set Collateral'}
+          </button>
+        </div>
+
+        {/* Current collaterals from contract */}
+        <div>
+          <div className="text-sm text-slate-400 font-medium mb-3">Current On-Chain Collaterals</div>
+          {colLoading ? (
+            <p className="text-slate-500 text-sm">Loading...</p>
+          ) : collaterals.length === 0 ? (
+            <p className="text-slate-500 text-sm">No collaterals configured on-chain yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {collaterals.map(col => (
+                <div key={col.address} className="flex items-center justify-between bg-slate-900/50 rounded-lg px-4 py-3">
+                  <div>
+                    <span className="text-white font-medium">{col.symbol}</span>
+                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${col.enabled ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                      {col.enabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                    <div className="text-slate-500 font-mono text-xs mt-0.5">{col.address}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-indigo-300 text-sm">LTV: {col.ltv}%</div>
+                    {col.priceUSD > 0 && (
+                      <div className="text-slate-400 text-xs mt-0.5">
+                        ${col.priceUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <span className="text-indigo-300 text-sm">LTV: {info.ltv}%</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-slate-400 text-sm">
-            No collateral configured. Use <code className="text-indigo-300">setCollateral()</code> on the contract.
-          </p>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Pool Stats ── */}
