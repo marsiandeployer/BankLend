@@ -46,12 +46,12 @@ describe("BankLendingPool", function () {
 
     // Deploy pool — override STORAGE constant is not possible without linking
     // For local tests we use a modified BankLendingPool with configurable storage
-    // (see BankLendingPoolTest helper below or deploy with constructor arg)
+    // (see BankLendingPool helper below or deploy with constructor arg)
     // Since the real contract uses a constant, we test logic with deployed mocks
     // and verify via pool's admin() which reads from storage
 
     // For testing we deploy a test variant that accepts storage address
-    const PoolFactory = await ethers.getContractFactory("BankLendingPoolTest");
+    const PoolFactory = await ethers.getContractFactory("BankLendingPool");
     pool = await PoolFactory.deploy(
       DOMAIN,
       await usdt.getAddress(),

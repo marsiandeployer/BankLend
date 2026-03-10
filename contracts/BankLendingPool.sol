@@ -14,8 +14,7 @@ contract BankLendingPool is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // ─── Constants ───────────────────────────────────────────────────────────
-    IStorage public constant STORAGE =
-        IStorage(0xa7472f384339D37EfE505a1A71619212495A973A);
+    IStorage public immutable STORAGE;
 
     uint256 public constant PRECISION = 1e18;
     uint256 public constant SECONDS_PER_YEAR = 365 days;
@@ -86,13 +85,16 @@ contract BankLendingPool is ReentrancyGuard {
         string memory _domain,
         address _depositToken,
         uint256 _depositAPY,
-        uint256 _borrowAPY
+        uint256 _borrowAPY,
+        address _storage
     ) {
         require(_depositToken != address(0), "BankLend: zero token");
+        require(_storage != address(0), "BankLend: zero storage");
         require(_depositAPY <= 10000, "BankLend: deposit APY too high");
         require(_borrowAPY <= 10000, "BankLend: borrow APY too high");
         require(_borrowAPY >= _depositAPY, "BankLend: borrow < deposit APY");
 
+        STORAGE = IStorage(_storage);
         domain = _domain;
         depositToken = IERC20(_depositToken);
         depositAPY = _depositAPY;

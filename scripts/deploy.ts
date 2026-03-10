@@ -1,7 +1,8 @@
 import { ethers, network } from "hardhat";
 
-// onout.org Storage contract (same on BSC mainnet and testnet)
-const STORAGE_ADDRESS_BSC = "0xa7472f384339D37EfE505a1A71619212495A973A";
+// onout.org Storage contracts
+const STORAGE_ADDRESS_BSC         = "0xa7472f384339D37EfE505a1A71619212495A973A";
+const STORAGE_ADDRESS_BSC_TESTNET = "0xF0BCf27a2203E7E8c1e9D36F40EF2C5A8a6E7D0B";
 
 // BSC Mainnet Chainlink feeds
 const BSC_MAINNET_FEEDS = {
@@ -80,12 +81,16 @@ async function main() {
   console.log("  Deposit APY:", depositAPY / 100, "%");
   console.log("  Borrow APY:", borrowAPY / 100, "%");
 
+  const storageAddress = isMainnet ? STORAGE_ADDRESS_BSC : STORAGE_ADDRESS_BSC_TESTNET;
+  console.log("  Storage:", storageAddress);
+
   const BankLendingPool = await ethers.getContractFactory("BankLendingPool");
   const pool = await BankLendingPool.deploy(
     domain,
     usdtAddress,
     depositAPY,
-    borrowAPY
+    borrowAPY,
+    storageAddress
   );
   await pool.waitForDeployment();
   const poolAddress = await pool.getAddress();
