@@ -1,6 +1,7 @@
 import { useAccount, useConnect, useDisconnect, useChainId, useSwitchChain } from 'wagmi'
 import { bsc, bscTestnet } from 'wagmi/chains'
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 const CHAINS = [
   { id: bscTestnet.id, name: 'BSC Testnet', short: 'tBSC', color: '#e8b240' },
@@ -59,9 +60,9 @@ export function ConnectWallet() {
           <span className="text-slate-500 text-xs">▾</span>
         </button>
 
-        {showModal && (
+        {showModal && createPortal(
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60"
             onClick={() => setShowModal(false)}
           >
             <div
@@ -86,7 +87,8 @@ export function ConnectWallet() {
                 Cancel
               </button>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </>
     )
